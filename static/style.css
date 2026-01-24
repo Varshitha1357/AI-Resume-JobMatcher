@@ -1,0 +1,16 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.container {
+    max-width: 600px;
+    margin-top: 50px;
+}
+
+#results {
+    white-space: pre-wrap;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: .25rem;
+    padding: 15px;
+}

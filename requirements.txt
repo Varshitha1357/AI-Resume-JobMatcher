@@ -1,0 +1,12 @@
+Flask
+PyMuPDF
+google-generativeai
+faiss-cpu
+numpy
+python-dotenv
+pandas
+sentence-transformers
+requests
+scikit-learn
+
+

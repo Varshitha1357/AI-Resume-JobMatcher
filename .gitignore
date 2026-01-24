@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Environment Variables (Keep secrets safe!)
+.env
+
+# VS Code
+.vscode/
+
+# Job Matcher Data
+data/resumes/
+data/jobs/
+data/vector_store/
