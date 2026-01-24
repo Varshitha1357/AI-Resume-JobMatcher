@@ -78,23 +78,42 @@ An intelligent Application Tracking System (ATS) style job matcher that analyzes
 ## 📁 Project Structure
 
 ```
-ai-job-matcher/
-├── app.py                 # Main Flask application
-├── data/                  # Data storage
-│   ├── jobs/              # Scraped job data
-│   ├── resumes/           # Uploaded resumes
-│   └── vector_store/      # FAISS index and vectorizer
-├── rag/                   # RAG Components
-│   ├── prompt_builder.py  # AI Prompt generation
-│   └── retriever.py       # Job retrieval logic
-├── scrapers/              # Web Scrapers
-│   └── job_scraper.py     # Logic to fetch jobs from web
-├── scripts/               # Utility scripts
-├── static/                # CSS & JavaScript
-├── templates/             # HTML Templates
-├── utils/                 # Helper modules (PDF parser, cleaning, embeddings)
-├── .env                   # Environment variables (Ignored by Git)
-└── requirements.txt       # Python dependencies
+Job-Matcher/
+├── app.py                     # Main Flask application (API + routing)
+├── requirements.txt           # Python dependencies
+├── README.md                  # Project documentation
+├── .gitignore                 # Ignored files & folders
+
+├── data/                      # Data storage
+│   ├── resumes/               # Uploaded resumes (PDFs)
+│   └── jobs_dataset.csv       # Collected job data (CSV)
+
+├── rag/                       # Retrieval-Augmented Generation (RAG)
+│   ├── prompt_builder.py      # Builds AI prompts using resume + job context
+│   ├── retriever.py           # Semantic retrieval logic
+│   └── __pycache__/           # Python cache (ignored)
+
+├── scrapers/                  # Job scraping module
+│   ├── job_scraper.py         # Scrapes job postings
+│   └── __init__.py            # Makes scrapers a Python package
+
+├── scripts/                   # Utility & test scripts
+│   ├── build_vector_store.py  # Creates embeddings & vector store
+│   ├── list_models.py         # Lists available AI/embedding models
+│   ├── test_match.py          # Tests resume–job matching logic
+│   └── test_scraper.py        # Tests job scraping functionality
+
+├── static/                    # Frontend static files
+│   ├── main.js                # Frontend logic (JS)
+│   └── style.css              # Styling (CSS)
+
+├── templates/                 # HTML templates
+│   └── index.html             # Main UI page
+
+├── utils/                     # Helper utilities
+│   └── embeddings.py          # Text embedding & vector helper functions
+
+
 ```
 
 ## 🤝 Contribution
