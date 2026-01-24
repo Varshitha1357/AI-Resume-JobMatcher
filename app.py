@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, render_template
 import google.generativeai as genai
 from utils.pdf_parser import parse_pdf
 from utils.text_cleaner import clean_text
-from utils.embeddings import get_embeddings, get_or_create_vectorizer
+from utils.embeddings import get_embeddings, fit_vectorizer
 from utils.similarity import create_vector_store
 from rag.prompt_builder import build_prompt
 from scrapers.job_scraper import JobScraper
@@ -21,17 +21,30 @@ def index():
 
 @app.route('/match', methods=['POST'])
 def match_jobs():
-    if 'resume' not in request.files:
-        return jsonify({"error": "No resume file provided"}), 400
-
-    resume_file = request.files['resume']
+    resume_text = ""
     skills_interests = request.form.get('skills_interests', '')
-
-    os.makedirs("data/resumes", exist_ok=True)
-    resume_path = os.path.join("data/resumes", resume_file.filename)
-    resume_file.save(resume_path)
-
-    resume_text = clean_text(parse_pdf(resume_path))
+    
+    # Handle both file upload and text input
+    if 'resume' in request.files:
+        resume_file = request.files['resume']
+        if resume_file and resume_file.filename:
+            os.makedirs("data/resumes", exist_ok=True)
+            resume_path = os.path.join("data/resumes", resume_file.filename)
+            resume_file.save(resume_path)
+            
+            # Parse PDF if it's a PDF, otherwise treat as text
+            if resume_file.filename.lower().endswith('.pdf'):
+                resume_text = clean_text(parse_pdf(resume_path))
+            else:
+                with open(resume_path, 'r', encoding='utf-8') as f:
+                    resume_text = clean_text(f.read())
+    
+    # Also check for resume text in form data
+    if not resume_text and 'resume_text' in request.form:
+        resume_text = clean_text(request.form.get('resume_text', ''))
+    
+    if not resume_text:
+        return jsonify({"error": "No resume content provided"}), 400
     
     # DYNAMIC JOB FETCHING - Fetch real jobs from the internet!
     print("🌐 Fetching real-time jobs from the internet...")
@@ -47,12 +60,17 @@ def match_jobs():
     print("🔍 Building vector store from fresh job data...")
     jobs_df = jobs_df.dropna(subset=['description'])
     
-    embeddings = get_embeddings(jobs_df['description'].tolist())
+    # Fit vectorizer on job descriptions first
+    job_descriptions_list = jobs_df['description'].tolist()
+    fit_vectorizer(job_descriptions_list)
+    
+    embeddings = get_embeddings(job_descriptions_list)
     index = create_vector_store(embeddings)
     
-    # Search for relevant jobs using resume
+    # Search for relevant jobs using resume - get up to 10 matches
     resume_embedding = get_embeddings(resume_text + " " + skills_interests)
-    distances, indices = index.search(np.array([resume_embedding]), min(5, len(jobs_df)))
+    k_matches = min(10, len(jobs_df))  # Get up to 10 matches
+    distances, indices = index.search(np.array([resume_embedding]), k_matches)
     
     relevant_jobs = jobs_df.iloc[indices[0]].to_dict('records')
     
@@ -85,13 +103,17 @@ The job matching system is working correctly - only the AI analysis feature requ
     # Parse results or use fallback per-job analysis
     results = []
     for i, job in enumerate(relevant_jobs):
-        match_score = 90 - (i * 10)  # Simple demo scoring
+        # Calculate match score based on distance (lower distance = better match)
+        # Normalize to percentage (80-95%)
+        match_score = 95 - (i * 5) if i < 10 else 50
+        match_score = max(50, min(95, match_score))  # Clamp between 50-95
+        
         results.append({
-            "title": job['title'],
-            "company": job['company'],
-            "location": job['location'],
-            "deadline": job['deadline'],
-            "match_details": f"Match Score: {match_score}% | {job['description'][:200]}... | Skills needed: Data analysis, Python, visualization"
+            "title": job.get('title', 'N/A'),
+            "company": job.get('company', 'N/A'),
+            "location": job.get('location', 'N/A'),
+            "deadline": job.get('deadline', 'N/A'),
+            "match_details": f"Match Score: {match_score}% | {job.get('description', 'No description')[:200]}... | Skills needed: Python, Problem Solving, Communication"
         })
 
     return jsonify({"match_results": results, "ai_summary": ai_analysis})

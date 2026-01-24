@@ -17,6 +17,15 @@ def get_or_create_vectorizer():
             vectorizer = TfidfVectorizer(max_features=384, stop_words='english')
     return vectorizer
 
+def fit_vectorizer(text_list):
+    """
+    Fits the vectorizer on the given text data.
+    """
+    global vectorizer
+    vectorizer = TfidfVectorizer(max_features=384, stop_words='english')
+    vectorizer.fit(text_list)
+    return vectorizer
+
 def get_embeddings(text):
     """
     Generates embeddings for the given text using TF-IDF.
