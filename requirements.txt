@@ -1,11 +1,10 @@
 Flask
 PyMuPDF
-google-generativeai
+anthropic
 faiss-cpu
 numpy
 python-dotenv
 pandas
 requests
 scikit-learn
-
 
