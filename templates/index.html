@@ -3,73 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Job Matcher</title>
+    <title>JobMatch AI · Find Roles That Fit</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,560;1,9..144,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="main-container">
-        <!-- Left Panel: Resume Upload -->
-        <div class="left-panel">
-            <div class="panel-content">
-                <!-- Resume Upload Section -->
-                <div class="resume-section">
-                    <h2 class="section-title">📄 Resume Upload</h2>
-                    
-                    <div class="upload-buttons">
-                        <button class="btn-upload" id="uploadFileBtn" type="button">Upload File</button>
-                        <button class="btn-paste" id="pasteTextBtn" type="button">Paste Text</button>
-                        <input type="file" id="fileInput" accept=".pdf" style="display: none;">
+    <div class="page">
+        <header class="site-header">
+            <div class="brand">JobMatch<span class="brand-accent">AI</span></div>
+            <p class="tagline">Semantic job matching, <em>tailored to your résumé</em></p>
+        </header>
+
+        <div class="main-container">
+            <!-- Left Panel: Resume Upload -->
+            <div class="left-panel">
+                <div class="panel-content">
+                    <!-- Resume Upload Section -->
+                    <div class="resume-section">
+                        <div class="section-label">Step 01</div>
+                        <h2 class="section-title">Your Résumé</h2>
+
+                        <div class="upload-buttons">
+                            <button class="btn-upload" id="uploadFileBtn" type="button">
+                                <span class="btn-icon">↑</span> Upload File
+                            </button>
+                            <button class="btn-paste" id="pasteTextBtn" type="button">
+                                <span class="btn-icon">⧉</span> Paste Text
+                            </button>
+                            <input type="file" id="fileInput" accept=".pdf,.txt" style="display: none;">
+                        </div>
+
+                        <textarea id="resumeText" class="resume-textarea" placeholder="Paste your résumé content here, or upload a PDF above..."></textarea>
+
+                        <div class="char-count">0 characters</div>
                     </div>
 
-                    <textarea id="resumeText" class="resume-textarea" placeholder="Paste your resume content here..."></textarea>
-                    
-                    <div class="char-count">0 characters</div>
-
-                    <div class="nav-arrows">
-                        <button class="arrow-btn left">❮</button>
-                        <button class="arrow-btn right">❯</button>
+                    <!-- Skills & Interests Section -->
+                    <div class="skills-section">
+                        <div class="section-label">Step 02</div>
+                        <h3 class="section-subtitle">Skills &amp; Interests</h3>
+                        <p class="help-text">Refine your matches beyond what's written in your résumé</p>
+                        <textarea id="skillsText" class="skills-textarea" placeholder="e.g. Python, Machine Learning, LLMs, Backend Development"></textarea>
                     </div>
+
+                    <!-- Find Jobs Button -->
+                    <button class="btn-find-jobs" id="findJobsBtn">Find My Perfect Jobs <span class="btn-arrow">→</span></button>
+                </div>
+            </div>
+
+            <!-- Right Panel: Job Matches -->
+            <div class="right-panel">
+                <div class="panel-header">
+                    <div class="section-label">Results</div>
+                    <h2 class="matches-title">Top Matches</h2>
+                    <p class="matches-subtitle">Ranked by semantic similarity &amp; AI analysis</p>
                 </div>
 
-                <!-- Skills & Interests Section -->
-                <div class="skills-section">
-                    <h3 class="section-subtitle">🎯 Skills & Interests</h3>
-                    <p class="help-text">Additional Skills, Interests, or Preferred Roles</p>
-                    <textarea id="skillsText" class="skills-textarea" placeholder="e.g., Python, Machine Learning, Data Analysis&#10;good in coding well in python and java"></textarea>
-                    <p class="helper-note">This helps refine your job matches beyond what's in your resume</p>
+                <div id="jobsContainer" class="jobs-container">
+                    <div id="aiSummary" class="ai-summary" style="display: none;"></div>
+                    <div class="loading-state" id="loadingState" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>Analyzing your profile against live openings...</p>
+                        <p class="loading-note">This can take up to a minute</p>
+                    </div>
+                    <div class="empty-state" id="emptyState">
+                        <div class="empty-mark">✦</div>
+                        <p>Upload your résumé to discover roles<br>curated for your skills</p>
+                    </div>
+                    <div id="jobsList" class="jobs-list"></div>
                 </div>
 
-                <!-- Find Jobs Button -->
-                <button class="btn-find-jobs" id="findJobsBtn">🔵 Find My Perfect Jobs</button>
+                <div class="carousel-controls">
+                    <button class="carousel-btn prev" aria-label="Previous job">←</button>
+                    <button class="carousel-btn next" aria-label="Next job">→</button>
+                </div>
             </div>
         </div>
 
-        <!-- Right Panel: Job Matches -->
-        <div class="right-panel">
-            <div class="panel-header">
-                <h2 class="matches-title">🎯 Top 10 Job Matches</h2>
-                <p class="matches-subtitle">Ranked by semantic similarity to your profile</p>
-            </div>
-
-            <div id="jobsContainer" class="jobs-container">
-                <div class="loading-state" id="loadingState" style="display: none;">
-                    <div class="spinner"></div>
-                    <p>Finding your perfect jobs...</p>
-                </div>
-                <div class="empty-state" id="emptyState">
-                    <p>Upload your resume to see job matches</p>
-                </div>
-                <div id="jobsList" class="jobs-list"></div>
-            </div>
-
-            <div class="carousel-controls">
-                <button class="carousel-btn prev">❮</button>
-                <button class="carousel-btn next">❯</button>
-            </div>
-        </div>
+        <footer class="site-footer">
+            Live listings from RemoteOK &amp; Adzuna · Analysis by Groq
+        </footer>
     </div>
 
     <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>
-

@@ -18,3 +18,4 @@ env/
 data/resumes/
 data/jobs/
 data/vector_store/
+data/jobs_dataset.csv

@@ -9,10 +9,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const jobsList = document.getElementById('jobsList');
     const emptyState = document.getElementById('emptyState');
     const loadingState = document.getElementById('loadingState');
+    const aiSummary = document.getElementById('aiSummary');
 
     let currentJobs = [];
     let currentIndex = 0;
     let uploadedFile = null;
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    }
 
     // Handle file upload
     uploadFileBtn.addEventListener('click', () => {
@@ -31,31 +38,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    fileInput.addEventListener('change', async function(e) {
+    fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
-        if (file) {
-            uploadedFile = file;
-            
-            // If it's a PDF, try to extract text
-            if (file.type === 'application/pdf') {
-                try {
-                    // For now, just show that file is selected
-                    resumeText.value = `[PDF File Selected: ${file.name}]\n\nFile is ready to process. Click "Find My Perfect Jobs" to continue.`;
-                    updateCharCount();
-                } catch (error) {
-                    console.error('Error reading PDF:', error);
-                    resumeText.value = `[PDF File Selected: ${file.name}]\n\nFile is ready to process. Click "Find My Perfect Jobs" to continue.`;
-                    updateCharCount();
-                }
-            } else {
-                // For text files, read the content
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    resumeText.value = e.target.result;
-                    updateCharCount();
-                };
-                reader.readAsText(file);
-            }
+        if (!file) return;
+        uploadedFile = file;
+
+        if (file.type === 'application/pdf') {
+            resumeText.value = `[PDF File Selected: ${file.name}]\n\nText will be extracted on the server. Click "Find My Perfect Jobs" to continue.`;
+            updateCharCount();
+        } else {
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                resumeText.value = ev.target.result;
+                updateCharCount();
+            };
+            reader.readAsText(file);
         }
     });
 
@@ -71,28 +68,25 @@ document.addEventListener('DOMContentLoaded', function() {
         const resumeContent = resumeText.value.trim();
         const skills = skillsText.value.trim();
 
-        if (!resumeContent) {
+        if (!resumeContent && !uploadedFile) {
             alert('Please upload or paste your resume content');
             return;
         }
 
         loadingState.style.display = 'flex';
         emptyState.style.display = 'none';
+        aiSummary.style.display = 'none';
         jobsList.innerHTML = '';
+        findJobsBtn.disabled = true;
 
         try {
             const formData = new FormData();
-            
-            // If file was uploaded, use it; otherwise use text content
+
             if (uploadedFile) {
                 formData.append('resume', uploadedFile);
             } else {
-                // Create a text file from the textarea content
-                const blob = new Blob([resumeContent], { type: 'text/plain' });
-                const file = new File([blob], 'resume.txt', { type: 'text/plain' });
-                formData.append('resume', file);
+                formData.append('resume_text', resumeContent);
             }
-            
             formData.append('skills_interests', skills);
 
             const response = await fetch('/match', {
@@ -100,27 +94,39 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: formData
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                currentJobs = data.match_results || [];
-                currentIndex = 0;
-                displayJobs();
-                loadingState.style.display = 'none';
-            } else {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to fetch jobs');
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to fetch jobs');
             }
+
+            currentJobs = data.match_results || [];
+            currentIndex = 0;
+            displaySummary(data.ai_summary);
+            displayJobs();
         } catch (error) {
             console.error('Error:', error);
-            loadingState.style.display = 'none';
-            emptyState.innerHTML = '<p>Error: ' + error.message + '</p>';
+            emptyState.innerHTML = '<p>Error: ' + escapeHtml(error.message) + '</p>';
             emptyState.style.display = 'flex';
+        } finally {
+            loadingState.style.display = 'none';
+            findJobsBtn.disabled = false;
         }
     });
 
+    function displaySummary(summary) {
+        if (!summary) {
+            aiSummary.style.display = 'none';
+            return;
+        }
+        aiSummary.innerHTML =
+            '<h3 class="summary-title">Career Analysis</h3>' +
+            '<p class="summary-text">' + escapeHtml(summary).replace(/\n/g, '<br>') + '</p>';
+        aiSummary.style.display = 'block';
+    }
+
     function displayJobs() {
         jobsList.innerHTML = '';
-        
+
         if (currentJobs.length === 0) {
             emptyState.innerHTML = '<p>No jobs found. Try different keywords.</p>';
             emptyState.style.display = 'flex';
@@ -130,8 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
         emptyState.style.display = 'none';
 
         currentJobs.forEach((job, index) => {
-            const jobCard = createJobCard(job, index);
-            jobsList.appendChild(jobCard);
+            jobsList.appendChild(createJobCard(job, index));
         });
     }
 
@@ -139,32 +144,36 @@ document.addEventListener('DOMContentLoaded', function() {
         const card = document.createElement('div');
         card.className = 'job-card';
 
-        // Extract match percentage from match_details
-        const matchPercentageMatch = job.match_details.match(/(\d+(?:\.\d+)?)%/);
-        const matchPercentage = matchPercentageMatch ? matchPercentageMatch[1] : '85';
+        const score = Math.round(Number(job.match_score) || 0);
+        const matchedTags = (job.matched_skills || [])
+            .map(s => '<span class="tag skill">' + escapeHtml(s) + '</span>')
+            .join('');
+        const gapTags = (job.skill_gaps || [])
+            .map(s => '<span class="tag gap">' + escapeHtml(s) + '</span>')
+            .join('');
+        const applyLink = job.url
+            ? '<a class="apply-link" href="' + escapeHtml(job.url) + '" target="_blank" rel="noopener noreferrer">Apply ↗</a>'
+            : '';
 
         card.innerHTML = `
             <div class="job-header">
-                <span class="job-rank">#${index + 1}</span>
+                <span class="job-rank">${String(index + 1).padStart(2, '0')}</span>
                 <div class="job-title-company">
-                    <div class="job-title">${job.title}</div>
-                    <div class="job-company">${job.company}</div>
+                    <div class="job-title">${escapeHtml(job.title)}</div>
+                    <div class="job-company">${escapeHtml(job.company)}</div>
                 </div>
-                <div class="match-badge">${matchPercentage}%<br><span style="font-size: 11px;">Match</span></div>
+                <div class="match-badge">${score}%<br><span style="font-size: 10px; font-weight: 500; letter-spacing: 0.08em;">MATCH</span></div>
             </div>
             <div class="job-meta">
-                <div class="job-meta-item">📍 ${job.location || 'Remote'}</div>
-                <div class="job-meta-item">💼 ${job.deadline || 'Full-time'}</div>
+                <div class="job-meta-item">${escapeHtml(job.location || 'Remote')}</div>
+                <div class="job-meta-item">·&nbsp; ${escapeHtml(job.source || '')}</div>
+                <div class="job-meta-item">·&nbsp; ${escapeHtml(job.similarity)}% similarity</div>
             </div>
-            <div class="job-description">
-                ${job.match_details.split('|')[0].trim().replace('Match Score:', '').trim().substring(0, 150)}...
-            </div>
-            <div class="job-tags">
-                <span class="tag skill">Python</span>
-                <span class="tag framework">Development</span>
-                <span class="tag skill">Problem Solving</span>
-                <span class="tag">+more</span>
-            </div>
+            <div class="job-description">${escapeHtml((job.description || '').substring(0, 220))}...</div>
+            ${job.reason ? '<div class="job-reason">' + escapeHtml(job.reason) + '</div>' : ''}
+            ${matchedTags ? '<div class="job-tags"><span class="tags-label">You have</span>' + matchedTags + '</div>' : ''}
+            ${gapTags ? '<div class="job-tags"><span class="tags-label">To learn</span>' + gapTags + '</div>' : ''}
+            ${applyLink}
         `;
 
         return card;
@@ -195,5 +204,3 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize
     updateCharCount();
 });
-
-

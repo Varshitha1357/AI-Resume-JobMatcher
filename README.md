@@ -1,29 +1,30 @@
 # AI Job Matcher with RAG & Dynamic Scraping
 
-An intelligent Application Tracking System (ATS) style job matcher that analyzes resumes against real-time job listings using Retrieval-Augmented Generation (RAG).
+An intelligent ATS-style job matcher that analyzes resumes against real-time job listings using semantic search and Retrieval-Augmented Generation (RAG).
 
 ## 🚀 Features
 
 - **Resume Parsing**: Extracts text from PDF resumes automatically.
-- **Dynamic Job Scraping**: Fetches real-time job listings from RemoteOK and other platforms.
-- **AI-Powered Matching**: Uses TF-IDF vectorization and FAISS for efficient similarity search between resumes and job descriptions.
-- **RAG Analysis**: Generates personalized career insights and match explanations using Google's Gemini 2.0 Flash model.
-- **Interactive UI**: Simple web interface to upload resumes and input skills.
-- **Demo Mode**: Includes fallback demo mode if API quotas are exceeded.
+- **Dynamic Job Scraping**: Fetches real-time job listings from RemoteOK (and optionally Adzuna), with HTML stripped and duplicates removed. Results are cached for 30 minutes.
+- **Semantic Matching**: Ranks jobs by true semantic similarity using fastembed (BAAI/bge-small-en-v1.5) embeddings and FAISS cosine search — not just keyword overlap.
+- **AI-Powered Analysis**: Groq (Llama 3.3 70B) returns a structured per-job analysis: honest match score, skills you already have, skill gaps to learn, and a one-line reason — plus an overall career summary.
+- **Apply Links**: Every job card links directly to the real job posting.
+- **Graceful Fallbacks**: Works without the AI key (similarity-only scores) and falls back to TF-IDF if no embedding model is available.
 
 ## 🛠️ Tech Stack
 
 - **Backend**: Flask (Python)
-- **AI/LLM**: Google Gemini 2.0 Flash
-- **Vector Search**: FAISS (Facebook AI Similarity Search) & TF-IDF
+- **AI/LLM**: Groq — `llama-3.3-70b-versatile` (configurable via `GROQ_MODEL`)
+- **Embeddings**: fastembed (ONNX) with TF-IDF fallback
+- **Vector Search**: FAISS (cosine similarity via inner product)
 - **PDF Processing**: PyMuPDF (fitz)
-- **Scraping**: Requests
-- **Frontend**: HTML5, CSS3, JavaScript (Bootstrap 4)
+- **Scraping**: Requests + BeautifulSoup
+- **Frontend**: HTML5, CSS3, vanilla JavaScript
 
 ## 📋 Prerequisites
 
-- Python 3.8 or higher
-- A Google Cloud Gemini API Key (Get it [here](https://aistudio.google.com/))
+- Python 3.9 or higher
+- A free Groq API key — get one at [console.groq.com](https://console.groq.com/keys)
 
 ## ⚙️ Installation
 
@@ -50,70 +51,76 @@ An intelligent Application Tracking System (ATS) style job matcher that analyzes
    ```
 
 4. **Environment Setup**
-   Create a `.env` file in the root directory and add your API key:
+   Create a `.env` file in the root directory:
    ```env
-   GEMINI_API_KEY=your_actual_api_key_here
+   GROQ_API_KEY=your_actual_groq_api_key_here
+
+   # Optional
+   # GROQ_MODEL=llama-3.3-70b-versatile
+   # ADZUNA_APP_ID=...
+   # ADZUNA_APP_KEY=...
    ```
 
-## 🏃‍♂️ usage
+## 🏃‍♂️ Usage
 
-1. **Initialize the Vector Store** (Optional, for static dataset)
-   ```bash
-   python scripts/build_vector_store.py
-   ```
-
-2. **Run the Application**
+1. **Run the Application**
    ```bash
    python app.py
    ```
 
-3. **Access the Web Interface**
+2. **Access the Web Interface**
    Open your browser and navigate to `http://127.0.0.1:5000`
 
-4. **Upload & Match**
-   - Upload your Resume (PDF format).
-   - Add specific skills or interests.
-   - Click "Match Jobs" to see results and AI analysis.
+3. **Upload & Match**
+   - Upload your resume (PDF or TXT) or paste the text.
+   - Add specific skills or interests to refine matches.
+   - Click "Find My Perfect Jobs" to see ranked matches, skill gaps, and the AI career analysis.
+
+The first request downloads the embedding model (~100 MB) and scrapes fresh jobs, so it takes a minute; later requests use the cache and are much faster.
+
+## 🧪 Testing
+
+```bash
+# Test scraping (no server needed)
+python scripts/test_scraper.py "python developer"
+
+# Test the full pipeline (server must be running)
+python scripts/test_match.py path/to/resume.pdf "Python, SQL, ML"
+```
 
 ## 📁 Project Structure
 
 ```
 Job-Matcher/
-├── app.py                     # Main Flask application (API + routing)
+├── app.py                     # Flask app: routing, matching pipeline, Groq analysis
 ├── requirements.txt           # Python dependencies
-├── README.md                  # Project documentation
-├── .gitignore                 # Ignored files & folders
-
-├── data/                      # Data storage
-│   ├── resumes/               # Uploaded resumes (PDFs)
-│   └── jobs_dataset.csv       # Collected job data (CSV)
-
-├── rag/                       # Retrieval-Augmented Generation (RAG)
-│   ├── prompt_builder.py      # Builds AI prompts using resume + job context
-│   ├── retriever.py           # Semantic retrieval logic
-│   └── __pycache__/           # Python cache (ignored)
-
-├── scrapers/                  # Job scraping module
-│   ├── job_scraper.py         # Scrapes job postings
-│   └── __init__.py            # Makes scrapers a Python package
-
-├── scripts/                   # Utility & test scripts
-│   ├── build_vector_store.py  # Creates embeddings & vector store
-│   ├── list_models.py         # Lists available AI/embedding models
-│   ├── test_match.py          # Tests resume–job matching logic
-│   └── test_scraper.py        # Tests job scraping functionality
-
-├── static/                    # Frontend static files
-│   ├── main.js                # Frontend logic (JS)
-│   └── style.css              # Styling (CSS)
-
-├── templates/                 # HTML templates
+├── .env                       # API keys (never commit real keys!)
+│
+├── data/
+│   └── resumes/               # Uploaded resumes (gitignored)
+│
+├── rag/
+│   └── prompt_builder.py      # Structured JSON prompt for the LLM
+│
+├── scrapers/
+│   └── job_scraper.py         # RemoteOK + Adzuna scrapers, sample fallback
+│
+├── scripts/
+│   ├── test_match.py          # End-to-end test of /match
+│   └── test_scraper.py        # Scraper test
+│
+├── static/
+│   ├── main.js                # Frontend logic
+│   └── style.css              # Styling
+│
+├── templates/
 │   └── index.html             # Main UI page
-
-├── utils/                     # Helper utilities
-│   └── embeddings.py          # Text embedding & vector helper functions
-
-
+│
+└── utils/
+    ├── embeddings.py          # fastembed / TF-IDF embeddings (L2-normalized)
+    ├── similarity.py          # FAISS cosine-similarity index
+    ├── pdf_parser.py          # PDF text extraction
+    └── text_cleaner.py        # Text normalization (preserves C++, Node.js, ...)
 ```
 
 ## 🤝 Contribution
