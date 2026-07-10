@@ -1,16 +1,10 @@
----
-title: JobMatch AI
-emoji: 🎯
-colorFrom: purple
-colorTo: blue
-sdk: docker
-app_port: 7860
-pinned: false
----
-
 # AI Job Matcher with RAG & Dynamic Scraping
 
+**🔗 Live Demo: [ai-resume-jobmatcher.onrender.com](https://ai-resume-jobmatcher.onrender.com)**
+
 An intelligent ATS-style job matcher that analyzes resumes against real-time job listings using semantic search and Retrieval-Augmented Generation (RAG).
+
+> **Note:** The demo runs on free hosting — if it has been idle, the first page load takes ~1 minute to wake up, and the first search takes ~15–30 seconds.
 
 ## 🚀 Features
 
@@ -25,7 +19,7 @@ An intelligent ATS-style job matcher that analyzes resumes against real-time job
 
 - **Backend**: Flask (Python)
 - **AI/LLM**: Groq — `llama-3.3-70b-versatile` (configurable via `GROQ_MODEL`)
-- **Embeddings**: fastembed (ONNX) with TF-IDF fallback
+- **Embeddings**: Gemini embeddings API, fastembed (ONNX), or TF-IDF — automatic failover
 - **Vector Search**: FAISS (cosine similarity via inner product)
 - **PDF Processing**: PyMuPDF (fitz)
 - **Scraping**: Requests + BeautifulSoup
@@ -40,8 +34,8 @@ An intelligent ATS-style job matcher that analyzes resumes against real-time job
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/manidweep1306/Job-Matcher.git
-   cd Job-Matcher
+   git clone https://github.com/Varshitha1357/AI-Resume-JobMatcher.git
+   cd AI-Resume-JobMatcher
    ```
 
 2. **Create a virtual environment**
