@@ -75,7 +75,13 @@ def embed_job_descriptions(texts):
     missing = [t for t in texts if t not in _embedding_cache]
     if missing:
         print(f"Embedding {len(missing)} new descriptions ({len(texts) - len(missing)} cached)")
-        vectors = get_embeddings(missing)
+        try:
+            vectors = get_embeddings(missing)
+        except Exception:
+            if get_backend() != backend:
+                # Backend switched mid-request (e.g. Gemini quota) — redo cleanly
+                return embed_job_descriptions(texts)
+            raise
         if len(_embedding_cache) > 5000:
             _embedding_cache.clear()
         for text, vector in zip(missing, vectors):

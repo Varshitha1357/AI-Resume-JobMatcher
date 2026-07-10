@@ -111,7 +111,10 @@ document.addEventListener('DOMContentLoaded', function() {
             displayJobs();
         } catch (error) {
             console.error('Error:', error);
-            emptyState.innerHTML = '<p>Error: ' + escapeHtml(error.message) + '</p>';
+            const friendly = /failed to fetch|networkerror|load failed/i.test(error.message)
+                ? 'The server took too long to respond — free hosting can be slow on the first search. Please try again in a minute.'
+                : error.message;
+            emptyState.innerHTML = '<p>Error: ' + escapeHtml(friendly) + '</p>';
             emptyState.style.display = 'flex';
         } finally {
             loadingState.style.display = 'none';

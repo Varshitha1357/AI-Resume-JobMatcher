@@ -57,12 +57,13 @@ def _gemini_embed(texts, api_key):
                 for t in chunk
             ]
         }
-        for attempt in range(4):
+        # At most one short retry: long waits risk hitting the host's
+        # request timeout, and the local fallback is better than a dead request
+        for attempt in range(2):
             response = requests.post(url, json=payload, timeout=60)
-            if response.status_code == 429 and attempt < 3:
-                wait = 15 * (attempt + 1)
-                print(f"Gemini rate limit hit; retrying in {wait}s...")
-                time.sleep(wait)
+            if response.status_code == 429 and attempt == 0:
+                print("Gemini rate limit hit; retrying in 12s...")
+                time.sleep(12)
                 continue
             response.raise_for_status()
             break
@@ -82,6 +83,13 @@ def _load_backend():
         print(f"Using Gemini embeddings API ({GEMINI_EMBED_MODEL})")
         _embed_fn = lambda texts: _gemini_embed(texts, api_key)
         _backend = "gemini"
+        return _backend
+
+    # On small servers, downloading/loading a local model mid-request is worse
+    # than keyword matching. EMBED_FALLBACK=tfidf skips the model backends.
+    if os.getenv("EMBED_FALLBACK", "").lower() == "tfidf":
+        print("Using TF-IDF fallback (EMBED_FALLBACK=tfidf)")
+        _backend = "tfidf"
         return _backend
 
     try:
