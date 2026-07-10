@@ -17,6 +17,8 @@ def build_prompt(resume_text, jobs, skills_interests):
     prompt = (
         "You are an expert career advisor and ATS analyst. Analyze the candidate's "
         "resume and skills against each job below.\n\n"
+        f"IMPORTANT: the \"jobs\" array MUST contain exactly {len(jobs)} entries — "
+        "one for every job listed, in order, keeping each job's index.\n\n"
         "Respond with ONLY a valid JSON object, no markdown, using this exact schema:\n"
         "{\n"
         '  "overall_summary": "3-5 sentence career analysis: candidate strengths, '

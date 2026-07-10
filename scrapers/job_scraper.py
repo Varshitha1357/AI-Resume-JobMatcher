@@ -11,6 +11,7 @@ so the app stays usable offline. Sample jobs are marked source='Sample (demo)'.
 import os
 import re
 import random
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict
 
 import requests
@@ -53,21 +54,29 @@ class JobScraper:
         words = re.sub(r"[^\w\s+#.]", " ", keywords).split()
         what_or = " ".join(words[:10]) or "software developer"
 
-        url = f"https://api.adzuna.com/v1/api/jobs/{location}/search/1"
-        params = {
-            "app_id": app_id,
-            "app_key": app_key,
-            "results_per_page": max_results,
-            "what_or": what_or,
-            "content-type": "application/json",
-        }
+        # Adzuna caps results_per_page at 50, so fetch the pages concurrently
+        def fetch_page(page):
+            url = f"https://api.adzuna.com/v1/api/jobs/{location}/search/{page}"
+            params = {
+                "app_id": app_id,
+                "app_key": app_key,
+                "results_per_page": 50,
+                "what_or": what_or,
+                "content-type": "application/json",
+            }
+            try:
+                response = requests.get(url, params=params, timeout=10)
+                if response.status_code == 200:
+                    return response.json().get("results", [])
+            except Exception as e:
+                print(f"Adzuna API error (page {page}): {e}")
+            return []
 
-        try:
-            response = requests.get(url, params=params, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                jobs = []
-                for result in data.get("results", []):
+        pages = max(1, min(6, -(-max_results // 50)))
+        jobs = []
+        with ThreadPoolExecutor(max_workers=pages) as executor:
+            for results in executor.map(fetch_page, range(1, pages + 1)):
+                for result in results:
                     jobs.append({
                         "title": strip_html(result.get("title", "N/A")),
                         "company": result.get("company", {}).get("display_name", "N/A"),
@@ -76,10 +85,7 @@ class JobScraper:
                         "url": result.get("redirect_url", ""),
                         "source": "Adzuna",
                     })
-                return jobs
-        except Exception as e:
-            print(f"Adzuna API error: {e}")
-        return []
+        return jobs[:max_results]
 
     def scrape_remoteok_jobs(self, keywords: str, max_results: int = 100) -> List[Dict]:
         """
@@ -126,19 +132,18 @@ class JobScraper:
         Scrape jobs from all available sources. Sample jobs are used only if
         every live source fails.
         """
-        all_jobs = []
-
         print(f"Fetching jobs for: {keywords}")
 
-        print("- Searching RemoteOK...")
-        remoteok_jobs = self.scrape_remoteok_jobs(keywords, max_per_source)
-        all_jobs.extend(remoteok_jobs)
-        print(f"  Found {len(remoteok_jobs)} jobs")
+        # Both sources are network-bound, so fetch them concurrently
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            remoteok_future = executor.submit(self.scrape_remoteok_jobs, keywords, max_per_source)
+            adzuna_future = executor.submit(self.scrape_adzuna_jobs, keywords, location, max_per_source)
+            remoteok_jobs = remoteok_future.result()
+            adzuna_jobs = adzuna_future.result()
 
-        print("- Searching Adzuna...")
-        adzuna_jobs = self.scrape_adzuna_jobs(keywords, location, max_per_source)
-        all_jobs.extend(adzuna_jobs)
-        print(f"  Found {len(adzuna_jobs)} jobs" if adzuna_jobs else "  Skipped (no ADZUNA_APP_ID/ADZUNA_APP_KEY set)")
+        all_jobs = remoteok_jobs + adzuna_jobs
+        print(f"- RemoteOK: {len(remoteok_jobs)} jobs")
+        print(f"- Adzuna: {len(adzuna_jobs)} jobs" if adzuna_jobs else "- Adzuna: skipped (no ADZUNA_APP_ID/ADZUNA_APP_KEY set)")
 
         if not all_jobs:
             print("WARNING: No live jobs found - using labeled sample jobs so the app stays usable.")

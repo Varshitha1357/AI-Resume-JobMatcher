@@ -54,6 +54,11 @@ def _load_backend():
     return _backend
 
 
+def get_backend():
+    """Returns the active embedding backend name: 'fastembed', 'sentence-transformers', or 'tfidf'."""
+    return _load_backend()
+
+
 def fit_corpus(texts):
     """
     Prepare the embedder for a corpus of documents.

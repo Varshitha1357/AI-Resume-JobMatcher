@@ -6,71 +6,93 @@
     <title>JobMatch AI · Find Roles That Fit</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,560;1,9..144,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="page">
-        <header class="site-header">
-            <div class="brand">JobMatch<span class="brand-accent">AI</span></div>
-            <p class="tagline">Semantic job matching, <em>tailored to your résumé</em></p>
-        </header>
+    <!-- Animated gradient backdrop -->
+    <div class="bg-blobs" id="bgBlobs" aria-hidden="true">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+    <canvas class="bg-canvas" id="bgCanvas" aria-hidden="true"></canvas>
+    <div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
 
+    <nav class="navbar">
+        <div class="nav-inner">
+            <div class="brand">Job<span class="brand-gradient">Match</span> <span class="brand-badge">AI</span></div>
+            <div class="nav-note"><span class="live-dot"></span> Live listings · RemoteOK &amp; Adzuna</div>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <h1 class="hero-title">Your résumé, <span class="hero-gradient">matched to real jobs</span></h1>
+        <p class="hero-sub">Semantic search + AI analysis over live openings — scored, explained, ready to apply.</p>
+    </header>
+
+    <div class="page">
         <div class="main-container">
             <!-- Left Panel: Resume Upload -->
-            <div class="left-panel">
+            <aside class="left-panel glass">
                 <div class="panel-content">
-                    <!-- Resume Upload Section -->
                     <div class="resume-section">
-                        <div class="section-label">Step 01</div>
-                        <h2 class="section-title">Your Résumé</h2>
+                        <div class="step-chip">01 · Résumé</div>
 
                         <div class="upload-buttons">
-                            <button class="btn-upload" id="uploadFileBtn" type="button">
-                                <span class="btn-icon">↑</span> Upload File
-                            </button>
-                            <button class="btn-paste" id="pasteTextBtn" type="button">
-                                <span class="btn-icon">⧉</span> Paste Text
-                            </button>
+                            <button class="btn-upload" id="uploadFileBtn" type="button">⬆ Upload file</button>
+                            <button class="btn-paste" id="pasteTextBtn" type="button">⧉ Paste text</button>
                             <input type="file" id="fileInput" accept=".pdf,.txt" style="display: none;">
                         </div>
 
                         <textarea id="resumeText" class="resume-textarea" placeholder="Paste your résumé content here, or upload a PDF above..."></textarea>
-
                         <div class="char-count">0 characters</div>
                     </div>
 
-                    <!-- Skills & Interests Section -->
                     <div class="skills-section">
-                        <div class="section-label">Step 02</div>
-                        <h3 class="section-subtitle">Skills &amp; Interests</h3>
-                        <p class="help-text">Refine your matches beyond what's written in your résumé</p>
-                        <textarea id="skillsText" class="skills-textarea" placeholder="e.g. Python, Machine Learning, LLMs, Backend Development"></textarea>
+                        <div class="step-chip">02 · Skills &amp; interests <span class="optional-tag">optional</span></div>
+                        <textarea id="skillsText" class="skills-textarea" placeholder="e.g. Python, Machine Learning, Backend Development"></textarea>
                     </div>
 
-                    <!-- Find Jobs Button -->
-                    <button class="btn-find-jobs" id="findJobsBtn">Find My Perfect Jobs <span class="btn-arrow">→</span></button>
+                    <button class="btn-find-jobs" id="findJobsBtn">Find my matches <span class="btn-arrow">→</span></button>
                 </div>
-            </div>
+            </aside>
 
             <!-- Right Panel: Job Matches -->
-            <div class="right-panel">
+            <main class="right-panel glass">
                 <div class="panel-header">
-                    <div class="section-label">Results</div>
-                    <h2 class="matches-title">Top Matches</h2>
-                    <p class="matches-subtitle">Ranked by semantic similarity &amp; AI analysis</p>
+                    <div class="panel-header-row">
+                        <div>
+                            <h2 class="matches-title">Matches</h2>
+                            <p class="matches-subtitle">Ranked by fit to your profile</p>
+                        </div>
+                        <div class="filter-wrap">
+                            <label class="filter-label" for="resultsFilter">Show</label>
+                            <select id="resultsFilter" class="results-filter">
+                                <option value="10">Top 10</option>
+                                <option value="25">Top 25</option>
+                                <option value="50">Top 50</option>
+                                <option value="all" selected>All matches</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="jobsContainer" class="jobs-container">
                     <div id="aiSummary" class="ai-summary" style="display: none;"></div>
                     <div class="loading-state" id="loadingState" style="display: none;">
                         <div class="spinner"></div>
-                        <p>Analyzing your profile against live openings...</p>
-                        <p class="loading-note">This can take up to a minute</p>
+                        <p class="loading-title">Matching you with live openings…</p>
+                        <p class="loading-note">Scanning job boards and analyzing fit — up to a minute</p>
+                        <div class="loading-fact-box">
+                            <div class="fact-label">✦ While you wait</div>
+                            <p class="loading-fact" id="loadingFact"></p>
+                        </div>
                     </div>
                     <div class="empty-state" id="emptyState">
-                        <div class="empty-mark">✦</div>
-                        <p>Upload your résumé to discover roles<br>curated for your skills</p>
+                        <div class="empty-orb"></div>
+                        <p class="empty-title">Your matches will appear here</p>
+                        <p class="empty-note">Add your résumé on the left and hit "Find my matches"</p>
                     </div>
                     <div id="jobsList" class="jobs-list"></div>
                 </div>
@@ -79,12 +101,8 @@
                     <button class="carousel-btn prev" aria-label="Previous job">←</button>
                     <button class="carousel-btn next" aria-label="Next job">→</button>
                 </div>
-            </div>
+            </main>
         </div>
-
-        <footer class="site-footer">
-            Live listings from RemoteOK &amp; Adzuna · Analysis by Groq
-        </footer>
     </div>
 
     <script src="{{ url_for('static', filename='main.js') }}"></script>
