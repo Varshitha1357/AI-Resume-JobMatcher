@@ -3,7 +3,7 @@ import json
 import os
 import re
 import time
-from collections import Counter
+from collections import Counter, defaultdict, deque
 
 import numpy as np
 from dotenv import load_dotenv
@@ -14,7 +14,7 @@ from werkzeug.utils import secure_filename
 from rag.prompt_builder import build_prompt
 from scrapers.job_scraper import JobScraper
 from utils.embeddings import fit_corpus, get_backend, get_embeddings
-from utils.pdf_parser import parse_pdf
+from utils.pdf_parser import parse_pdf_bytes
 from utils.similarity import create_vector_store, search_vector_store
 from utils.text_cleaner import clean_text
 
@@ -34,6 +34,21 @@ EMBED_CHARS = 600
 _groq_client = None
 _job_cache = {}
 _embedding_cache = {}
+
+# Basic per-IP rate limit so a public deployment can't drain the Groq quota
+RATE_LIMIT_PER_HOUR = int(os.getenv("RATE_LIMIT_PER_HOUR", "15"))
+_request_log = defaultdict(deque)
+
+
+def rate_limited(ip):
+    window = _request_log[ip]
+    now = time.time()
+    while window and now - window[0] > 3600:
+        window.popleft()
+    if len(window) >= RATE_LIMIT_PER_HOUR:
+        return True
+    window.append(now)
+    return False
 
 
 def embed_job_descriptions(texts):
@@ -146,7 +161,10 @@ def extract_search_keywords(resume_text):
 
 
 def extract_resume_text():
-    """Pulls resume text from the uploaded file or the resume_text form field."""
+    """
+    Pulls resume text from the uploaded file or the resume_text form field.
+    Uploads are parsed in memory and never written to disk.
+    """
     resume_file = request.files.get("resume")
     if resume_file and resume_file.filename:
         filename = secure_filename(resume_file.filename)
@@ -154,14 +172,10 @@ def extract_resume_text():
         if ext not in ALLOWED_EXTENSIONS:
             raise ValueError(f"Unsupported file type '{ext}'. Please upload a PDF or TXT file.")
 
-        os.makedirs("data/resumes", exist_ok=True)
-        resume_path = os.path.join("data/resumes", filename)
-        resume_file.save(resume_path)
-
+        data = resume_file.read()
         if ext == ".pdf":
-            return clean_text(parse_pdf(resume_path))
-        with open(resume_path, "r", encoding="utf-8", errors="ignore") as f:
-            return clean_text(f.read())
+            return clean_text(parse_pdf_bytes(data))
+        return clean_text(data.decode("utf-8", errors="ignore"))
 
     return clean_text(request.form.get("resume_text", ""))
 
@@ -204,6 +218,10 @@ def index():
 
 @app.route("/match", methods=["POST"])
 def match_jobs():
+    client_ip = (request.headers.get("X-Forwarded-For") or request.remote_addr or "?").split(",")[0].strip()
+    if rate_limited(client_ip):
+        return jsonify({"error": "Rate limit reached. Please try again in a little while."}), 429
+
     skills_interests = request.form.get("skills_interests", "").strip()
 
     try:
@@ -276,6 +294,14 @@ def match_jobs():
     more = [dict(r, tier="more") for r in analyzed[10:] + entries[top_k:]]
 
     return jsonify({"match_results": top + more, "ai_summary": ai_summary})
+
+
+# In production (gunicorn), warm the model at import so the first
+# search doesn't pay for the download/load
+if os.getenv("WARM_START") == "1":
+    print("Warming up embedding model...")
+    get_embeddings("warmup")
+    print("Model ready.")
 
 
 if __name__ == "__main__":

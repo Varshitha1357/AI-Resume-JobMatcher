@@ -1,3 +1,13 @@
+---
+title: JobMatch AI
+emoji: 🎯
+colorFrom: purple
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # AI Job Matcher with RAG & Dynamic Scraping
 
 An intelligent ATS-style job matcher that analyzes resumes against real-time job listings using semantic search and Retrieval-Augmented Generation (RAG).
