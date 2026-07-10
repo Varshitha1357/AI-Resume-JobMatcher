@@ -51,16 +51,26 @@ def rate_limited(ip):
     return False
 
 
+_cache_backend = None
+
+
 def embed_job_descriptions(texts):
     """
     Embeds job descriptions with a per-text cache, so unchanged jobs
     (e.g. the shared RemoteOK pool) are never re-embedded across requests.
     """
+    global _cache_backend
     texts = [t[:EMBED_CHARS] for t in texts]
-    if get_backend() == "tfidf":
+    backend = get_backend()
+    if backend == "tfidf":
         # TF-IDF vectors depend on the fitted corpus, so caching is unsafe
         fit_corpus(texts)
         return get_embeddings(texts)
+
+    # Vectors from different backends have different dimensions — never mix them
+    if backend != _cache_backend:
+        _embedding_cache.clear()
+        _cache_backend = backend
 
     missing = [t for t in texts if t not in _embedding_cache]
     if missing:
