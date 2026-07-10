@@ -27,24 +27,47 @@ def _normalize(emb):
     return emb / norms
 
 
+GEMINI_EMBED_MODEL = os.getenv("GEMINI_EMBED_MODEL", "gemini-embedding-001")
+GEMINI_CHUNK_SIZE = 25
+
+
 def _gemini_embed(texts, api_key):
+    """
+    Embeds via the Gemini API in small chunks. The free tier rate-limits
+    aggressively, so 429s are retried with a wait before giving up.
+    """
+    import time
+
     import requests
+
     url = (
         "https://generativelanguage.googleapis.com/v1beta/"
-        f"models/text-embedding-004:batchEmbedContents?key={api_key}"
+        f"models/{GEMINI_EMBED_MODEL}:batchEmbedContents?key={api_key}"
     )
     vectors = []
-    for i in range(0, len(texts), 100):  # API caps batches at 100
-        chunk = texts[i:i + 100]
+    for i in range(0, len(texts), GEMINI_CHUNK_SIZE):
+        chunk = texts[i:i + GEMINI_CHUNK_SIZE]
         payload = {
             "requests": [
-                {"model": "models/text-embedding-004", "content": {"parts": [{"text": t or " "}]}}
+                {
+                    "model": f"models/{GEMINI_EMBED_MODEL}",
+                    "content": {"parts": [{"text": t or " "}]},
+                    "outputDimensionality": 768,
+                }
                 for t in chunk
             ]
         }
-        response = requests.post(url, json=payload, timeout=60)
-        response.raise_for_status()
+        for attempt in range(4):
+            response = requests.post(url, json=payload, timeout=60)
+            if response.status_code == 429 and attempt < 3:
+                wait = 15 * (attempt + 1)
+                print(f"Gemini rate limit hit; retrying in {wait}s...")
+                time.sleep(wait)
+                continue
+            response.raise_for_status()
+            break
         vectors.extend(e["values"] for e in response.json()["embeddings"])
+    # Truncated gemini embeddings aren't pre-normalized; _normalize fixes that
     return _normalize(vectors)
 
 
@@ -54,8 +77,9 @@ def _load_backend():
         return _backend
 
     api_key = os.getenv("GEMINI_API_KEY")
-    if api_key and not _gemini_failed:
-        print("Using Gemini embeddings API (text-embedding-004)")
+    prefer_local = os.getenv("EMBED_BACKEND", "").lower() in ("local", "fastembed")
+    if api_key and not _gemini_failed and not prefer_local:
+        print(f"Using Gemini embeddings API ({GEMINI_EMBED_MODEL})")
         _embed_fn = lambda texts: _gemini_embed(texts, api_key)
         _backend = "gemini"
         return _backend
