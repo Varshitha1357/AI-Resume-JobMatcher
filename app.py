@@ -96,7 +96,9 @@ def get_jobs(keywords):
 
     scraper = JobScraper()
     country = os.getenv("ADZUNA_COUNTRY", "us")
-    jobs_df = scraper.scrape_all(keywords, location=country, max_per_source=300)
+    # Tunable pool size: lower this on weak free-tier hosts to keep searches fast
+    max_per_source = int(os.getenv("MAX_JOBS_PER_SOURCE", "300"))
+    jobs_df = scraper.scrape_all(keywords, location=country, max_per_source=max_per_source)
     jobs_df = jobs_df.dropna(subset=["description"]).reset_index(drop=True)
 
     if len(jobs_df) > 0:

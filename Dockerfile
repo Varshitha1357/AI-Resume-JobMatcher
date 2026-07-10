@@ -18,5 +18,6 @@ ENV HOME=/home/user \
 EXPOSE 7860
 
 # Single worker (the embedding model lives in memory), threads for concurrency,
-# generous timeout because a cold search can take ~1-2 minutes on free CPUs
-CMD ["gunicorn", "--workers", "1", "--threads", "4", "--timeout", "300", "--bind", "0.0.0.0:7860", "app:app"]
+# generous timeout because a cold search can take minutes on free CPUs.
+# Binds to $PORT when the host sets it (Render), else 7860 (Hugging Face).
+CMD gunicorn --workers 1 --threads 4 --timeout 600 --bind 0.0.0.0:${PORT:-7860} app:app
